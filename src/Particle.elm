@@ -1,10 +1,5 @@
 module Particle exposing (Particle, createParticle)
 
-import Collage exposing (..)
-import Collage.Layout exposing (..)
-import Collage.Render exposing (..)
-import Color
-
 type alias TupleXY = { x : Float, y : Float }
 
 type alias Tick = Float
@@ -55,11 +50,6 @@ nextVelocity e a t = {
     y = (a.y * t + e.v.y)
   }
 
-  
-drawParticle : Particle -> Collage msg
-drawParticle p = 
-  circle p.particleRadius
-    |> filled (uniform Color.red)
 {- 
 
 detectCollision : List Particle -> Particle -> Boolean

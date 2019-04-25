@@ -9,6 +9,7 @@ import Collage.Render exposing (..)
 import Color
 import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
+import List exposing (..)
 import Particle as P
 import Platform exposing (..)
 import Task
@@ -92,7 +93,7 @@ init _ =
                 , height = 0
                 }
             }
-      , particles = []
+      , particles = range 0 100 |> map (\x -> P.createParticle { x = toFloat x, y = 0 })
       }
     , getViewport |> Task.perform (\v -> ViewportInfoUpdate (toViewPortInfo v))
     )
@@ -135,14 +136,14 @@ subscriptions model =
 
 
 view : Model -> Html Msg
-view { metaInfo } =
+view model =
     div
         [ style "display" "flex"
         , style "justify-content" "center"
         , style "align-items" "center"
         ]
-        [ viewSvg metaInfo
-        , viewFPS metaInfo.fps
+        [ viewSvg model
+        , viewFPS model.metaInfo.fps
         ]
 
 
@@ -156,21 +157,32 @@ viewFPS fps =
         [ text <| String.fromFloat fps ]
 
 
-viewSvg : MetaInfo -> Html Msg
-viewSvg metaInfo =
-    background metaInfo.viewport
-        |> at topLeft (render metaInfo.frameCountAcc metaInfo.viewport)
+viewSvg : Model -> Html Msg
+viewSvg model =
+    renderBackground model.metaInfo.viewport
+        |> at topLeft (renderSquare model.metaInfo.frameCountAcc model.metaInfo.viewport)
+        |> at topLeft (renderParticles model.particles)
         |> svg
 
 
-background : ViewportInfo -> Collage Msg
-background v =
+renderBackground : ViewportInfo -> Collage msg
+renderBackground v =
     rectangle v.width v.height
         |> filled (uniform Color.white)
 
 
-render : Float -> ViewportInfo -> Collage Msg
-render count v =
+drawParticle : P.Particle -> Collage msg
+drawParticle p = 
+    circle p.particleRadius
+        |> filled (uniform Color.red)
+
+
+renderParticles : List P.Particle -> Collage msg
+renderParticles ps = group <| map drawParticle ps
+    
+
+renderSquare : Float -> ViewportInfo -> Collage msg
+renderSquare count v =
     let
         size =
             v.height / 3
