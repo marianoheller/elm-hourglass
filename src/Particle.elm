@@ -1,6 +1,9 @@
 module Particle exposing (Particle, createParticle)
 
-import Canvas exposing (..)
+import Collage exposing (..)
+import Collage.Layout exposing (..)
+import Collage.Render exposing (..)
+import Color
 
 type alias TupleXY = { x : Float, y : Float }
 
@@ -9,11 +12,10 @@ type alias Tick = Float
 type alias Particle = {
     v : TupleXY,
     p : TupleXY,
-    collisionRadius : Int
+    collisionRadius : Float,
+    particleRadius : Float
   }
 
-particleRadius : Int
-particleRadius = 5
 
 {- Lenses??? -}
 setPos : Particle -> TupleXY -> Particle 
@@ -30,7 +32,8 @@ createParticle pos = {
       x = 0.0,
       y = 0.0
     },
-    collisionRadius = particleRadius
+    collisionRadius = 5,
+    particleRadius = 5
   }
 
 nextTick : Particle -> TupleXY -> Tick -> Particle
@@ -51,6 +54,12 @@ nextVelocity e a t = {
     x = (a.x * t + e.v.x),
     y = (a.y * t + e.v.y)
   }
+
+  
+drawParticle : Particle -> Collage msg
+drawParticle p = 
+  circle p.particleRadius
+    |> filled (uniform Color.red)
 {- 
 
 detectCollision : List Particle -> Particle -> Boolean

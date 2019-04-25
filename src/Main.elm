@@ -3,7 +3,9 @@ module Main exposing (main)
 import Browser
 import Browser.Dom exposing (Viewport, getViewport)
 import Browser.Events exposing (onAnimationFrameDelta, onResize)
-import Canvas exposing (..)
+import Collage exposing (..)
+import Collage.Layout exposing (..)
+import Collage.Render exposing (..)
 import Color
 import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
@@ -53,9 +55,10 @@ setFrameCount : Float -> MetaInfo -> MetaInfo
 setFrameCount c f =
     { f | frameCount = c }
 
+
 increaseFrameCount : MetaInfo -> MetaInfo
 increaseFrameCount f =
-    { f | frameCount = f.frameCount + 1, frameCountAcc = f.frameCount + 1 }
+    { f | frameCount = f.frameCount + 1, frameCountAcc = f.frameCountAcc + 1 }
 
 
 setViewportInfo : ViewportInfo -> MetaInfo -> MetaInfo
@@ -138,14 +141,10 @@ view { metaInfo } =
         , style "justify-content" "center"
         , style "align-items" "center"
         ]
-        [ Canvas.toHtml
-            ( round metaInfo.viewport.width, round metaInfo.viewport.height )
-            [ style "border" "5px solid rgba(0,0,0,0.1)" ]
-            [ clearScreen metaInfo.viewport
-            , render metaInfo.frameCountAcc metaInfo.viewport
-            ]
+        [ viewSvg metaInfo
         , viewFPS metaInfo.fps
         ]
+
 
 viewFPS fps =
     div
@@ -157,20 +156,28 @@ viewFPS fps =
         [ text <| String.fromFloat fps ]
 
 
-clearScreen : ViewportInfo -> Renderable
-clearScreen v =
-    shapes [ fill Color.black ] [ rect ( 0, 0 ) v.width v.height ]
+viewSvg : MetaInfo -> Html Msg
+viewSvg metaInfo =
+    background metaInfo.viewport
+        |> at topLeft (render metaInfo.frameCountAcc metaInfo.viewport)
+        |> svg
 
 
-render : Float -> ViewportInfo -> Renderable
+background : ViewportInfo -> Collage Msg
+background v =
+    rectangle v.width v.height
+        |> filled (uniform Color.white)
+
+
+render : Float -> ViewportInfo -> Collage Msg
 render count v =
     let
         size =
             v.height / 3
-        
+
         centerX =
             v.width / 2
-        
+
         centerY =
             v.height / 2
 
@@ -179,18 +186,14 @@ render count v =
 
         y =
             centerY - (size / 2)
-            
+
         rotation =
-            degrees (count * 3)
+            degrees count
 
         hue =
             toFloat (count / 4 |> floor |> modBy 100) / 100
     in
-    shapes
-        [ transform
-            [ translate centerX centerY
-            , rotate rotation
-            ]
-        , fill (Color.hsl hue 0.3 0.7)
-        ]
-        [ rect ( x, y ) size size ]
+    rectangle size size
+        |> filled (uniform <| Color.hsl hue 0.3 0.7)
+        |> shift ( centerX, centerY )
+        |> rotate rotation
