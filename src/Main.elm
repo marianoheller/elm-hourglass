@@ -14,10 +14,12 @@ import Particle as P
 import Platform exposing (..)
 import Task
 import Time
+import Random
+import Math.Vector2 exposing (..)
 
 {- GRAVITY -}
-g : { x : Float, y : Float }
-g = { x = 0, y = -9.8 }
+g : Vec2
+g = vec2 0 -1
 
 {- PARTICLE MASS -}
 mass : Float
@@ -28,7 +30,8 @@ mass = 5
 {- Cd: drag coeff, r: air density -}
 {- Cd * .5 * r -}
 d : Float
-d = 1
+d = 0.0003
+    
 
 type alias ViewportInfo =
     { width : Float
@@ -122,7 +125,14 @@ init _ =
                 , height = 0
                 }
             }
-      , particles = range 1 10 |> map (\x -> P.createParticle { x = toFloat x, y = 0 } (toFloat x))
+      , particles = range 1 10
+        |> map
+            (\x ->
+                P.createParticle 
+                    (vec2 (toFloat x) 0)
+                    (Random.generate (vec2 (Random.float 1 10) (Random.float 1 10)))
+                    (toFloat x)
+            )
       }
     , Cmd.batch
         [ getViewport |> Task.perform (\v -> ViewportInfoUpdate (toViewPortInfo v))
@@ -152,7 +162,7 @@ update msg model =
                     model
                         |> setParticles
                             (map
-                                (\p -> P.setPos { x = p.p.x * widthP, y = heightP } p)
+                                (\p -> P.setPos (vec2 ((getX p.p) * widthP) heightP) p)
                                 model.particles
                             )
             in
@@ -249,7 +259,7 @@ drawParticle : P.Particle -> Collage msg
 drawParticle p =
     circle p.radius
         |> filled (uniform Color.red)
-        |> shift (p.p.x, (-1) * p.p.y)
+        |> shift ((getX p.p), (-1) * (getY p.p))
 
 
 renderParticles : List P.Particle -> Collage msg

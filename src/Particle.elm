@@ -1,8 +1,6 @@
 module Particle exposing (Particle, createParticle, nextTick, setPos)
 
-
-type alias TupleXY =
-    { x : Float, y : Float }
+import Math.Vector2 exposing (..)
 
 
 type alias Tick =
@@ -10,106 +8,90 @@ type alias Tick =
 
 
 type alias Particle =
-    { p : TupleXY
-    , v : TupleXY
-    , a : TupleXY
+    { p : Vec2
+    , v : Vec2
+    , a : Vec2
     , radius : Float
     , mass : Float
     , restitution : Float
     }
 
 
-setPos : TupleXY -> Particle -> Particle
+setPos : Vec2 -> Particle -> Particle
 setPos p e =
     { e | p = p }
 
 
-setVel : Particle -> TupleXY -> Particle
+setVel : Particle -> Vec2 -> Particle
 setVel e v =
     { e | v = v }
 
 
-setAccel : Particle -> TupleXY -> Particle
+setAccel : Particle -> Vec2 -> Particle
 setAccel e a =
     { e | a = a }
 
 
-createParticle : TupleXY -> Float -> Particle
-createParticle pos mass =
+createParticle : Vec2 -> Vec2 -> Float -> Particle
+createParticle pos vel mass =
     { p = pos
-    , a =
-        { x = 0.0
-        , y = 0.0
-        }
-    , v =
-        { x = 0.0
-        , y = 0.0
-        }
+    , v = vel
+    , a = vec2 0.00000001 0.00000001
     , radius = 5
     , mass = mass
     , restitution = 5
     }
 
-
-nextTick : TupleXY -> Float -> Tick -> Particle -> Particle
+{- 
+nextTick : Vec2 -> Float -> Tick -> Particle -> Particle
 nextTick g dCoeff t e =
     let
         surface =
             e.radius * 2 * 3.14
 
-        dragX =
-            dCoeff * (e.v.x ^ 2) * surface
+        drag =
+            scale (dCoeff * surface) (scale (dot e.v e.v) (normalize e.v))
+            
+        weight =
+            scale e.mass (add g e.a)
 
-        dragY =
-            dCoeff * (e.v.y ^ 2) * surface
+        diff = sub drag weight
 
-        weightX =
-            e.mass * (g.x + e.a.x)
-
-        weightY =
-            e.mass * (g.y + e.a.y)
-
-        wxdx =
-            if weightX - dragX < 0 then
-                0
+        wd =
+            if getX diff < 0 || getY diff < 0 then
+                vec2 0.0 0.0
 
             else
-                dragX - weightX
+                diff
 
-        wydy =
-            if abs weightY - abs dragY < 0 then
-                0
-
-            else
-                dragY - weightY
-
-        a =
-            { x = wxdx / e.mass
-            , y = wydy / e.mass
-            }
+        a = scale (1 / e.mass) wd
     in
     { e
-        | p = nextPosition t e
+        | p = nextPosition a t e
         , v = nextVelocity a t e
-        , a =
-            { x = a.x - g.x
-            , y = a.y - g.y
-            }
+        , a = sub a g
+    } -}
+
+nextTick : Vec2 -> Float -> Tick -> Particle -> Particle
+nextTick g dCoeff t e =
+    { e
+        | p = nextPosition (add g e.a) t e
+        , v = nextVelocity (add g e.a) t e
+        , a = (sub e.a g)
     }
 
 
-nextPosition : Tick -> Particle -> TupleXY
-nextPosition t e =
-    { x = e.v.x * (toFloat t / 1000) + e.p.x
-    , y = e.v.y * (toFloat t / 1000) + e.p.y
-    }
+nextPosition : Vec2 -> Tick -> Particle -> Vec2
+nextPosition a t e =
+    scale (((toFloat t / 1000) ^ 2) / 2) a
+        |> add (scale (toFloat t / 1000) e.v)
+        |> add e.p
 
 
-nextVelocity : TupleXY -> Tick -> Particle -> TupleXY
+nextVelocity : Vec2 -> Tick -> Particle -> Vec2
 nextVelocity a t e =
-    { x = a.x * (toFloat t / 1000) + e.v.x
-    , y = a.y * (toFloat t / 1000) + e.v.y
-    }
+    scale (toFloat t / 1000) a
+        |> add e.v
 
 
 detectCollision : Particle -> Particle -> Bool
@@ -118,7 +100,8 @@ detectCollision a b =
         r =
             a.radius + b.radius
     in
-    r < (a.p.x + b.p.x) ^ 2 + (a.p.y + b.p.y) ^ 2
+    r < (getX a.p + getX b.p) ^ 2 + (getY a.p + getY b.p) ^ 2
+{- 
 
 resolveCollision : Particle -> Particle -> Particle
 resolveCollision a b =
@@ -152,4 +135,4 @@ resolveCollision a b =
             { x = a.v.x - (1 / a.mass * impulseX)
             , y = a.v.y - (1 / a.mass * impulseY)
             }
-
+ -}
