@@ -122,7 +122,7 @@ init _ =
                 , height = 0
                 }
             }
-      , particles = range 0 9 |> map (\x -> P.createParticle { x = toFloat x, y = 0 } mass)
+      , particles = range 1 10 |> map (\x -> P.createParticle { x = toFloat x, y = 0 } (toFloat x))
       }
     , Cmd.batch
         [ getViewport |> Task.perform (\v -> ViewportInfoUpdate (toViewPortInfo v))
@@ -247,7 +247,7 @@ renderBackground m =
 
 drawParticle : P.Particle -> Collage msg
 drawParticle p =
-    circle p.particleRadius
+    circle p.radius
         |> filled (uniform Color.red)
         |> shift (p.p.x, (-1) * p.p.y)
 

@@ -13,9 +13,9 @@ type alias Particle =
     { p : TupleXY
     , v : TupleXY
     , a : TupleXY
-    , collisionRadius : Float
-    , particleRadius : Float
+    , radius : Float
     , mass : Float
+    , restitution : Float
     }
 
 
@@ -45,9 +45,9 @@ createParticle pos mass =
         { x = 0.0
         , y = 0.0
         }
-    , collisionRadius = 5
-    , particleRadius = 5
+    , radius = 5
     , mass = mass
+    , restitution = 5
     }
 
 
@@ -55,7 +55,7 @@ nextTick : TupleXY -> Float -> Tick -> Particle -> Particle
 nextTick g dCoeff t e =
     let
         surface =
-            e.particleRadius * 2 * 3.14
+            e.radius * 2 * 3.14
 
         dragX =
             dCoeff * (e.v.x ^ 2) * surface
@@ -112,14 +112,44 @@ nextVelocity a t e =
     }
 
 
+detectCollision : Particle -> Particle -> Bool
+detectCollision a b =
+    let
+        r =
+            a.radius + b.radius
+    in
+    r < (a.p.x + b.p.x) ^ 2 + (a.p.y + b.p.y) ^ 2
 
-{-
+resolveCollision : Particle -> Particle -> Particle
+resolveCollision a b =
+    let
+        vRelX =
+            b.v.x - a.v.x
 
-   detectCollision : List Particle -> Particle -> Boolean
-   detectCollision (a:as) b = collide a b || detectCollision as b
+        vRelY =
+            b.v.y - a.v.y
 
+        velAlongNormal =
+            vRelX - vRelY
 
-   collide : Particle -> Particle -> Boolean
-   collide e1 e2 = d > sqrt ((e1.p.x * e2.p.x) + (e1.p.y * e2.p.y))
-     where d = e1.collisionRadius + e2.collisionRadius
--}
+        e =
+            a.restitution
+
+        j =
+            (-(1 + e) * velAlongNormal) / (a.mass + 1 / b.mass)
+
+        impulseX =
+            j * a.v.x
+
+        impulseY =
+            j * a.v.y
+    in
+    if velAlongNormal < 0 then
+        a
+
+    else
+        setVel a
+            { x = a.v.x - (1 / a.mass * impulseX)
+            , y = a.v.y - (1 / a.mass * impulseY)
+            }
+
