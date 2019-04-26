@@ -111,7 +111,8 @@ collideEm ps =
     let
         detected = map (\p -> ( p, detectCollisions ps p )) ps
     in
-        resolveCollisions detected
+        {- resolveCollisions detected -}
+        ps
 
 
 detectCollisions : List Particle -> Particle -> List Particle
@@ -135,8 +136,6 @@ collided a b =
             a.radius + b.radius
 
         d = (distance a.p b.p)
-
-        _ = Debug.log "GOT" (r, d, a.p)
             
     in
     r > d
