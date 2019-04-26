@@ -10,28 +10,52 @@ import Color
 import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
 import List exposing (..)
+import Math.Vector2 exposing (..)
 import Particle as P
 import Platform exposing (..)
+import Random
 import Task
 import Time
-import Random
-import Math.Vector2 exposing (..)
+
+
 
 {- GRAVITY -}
+
+
 g : Vec2
-g = vec2 0 -1
+g =
+    vec2 0 -0.00001
+
+
 
 {- PARTICLE MASS -}
-mass : Float
-mass = 5
 
-{- DRAG COEFF TOTAL-}
+
+mass : Float
+mass =
+    5
+
+
+
+{- DRAG COEFF TOTAL -}
 {- Drag = Cd * .5 * r * V^2 * A -}
 {- Cd: drag coeff, r: air density -}
 {- Cd * .5 * r -}
+
+
 d : Float
-d = 0.0003
-    
+d =
+    0.01
+
+
+
+{- BASE PARTICLES -}
+
+
+pBase : List Float
+pBase =
+    map toFloat (range 1 10)
+
 
 type alias ViewportInfo =
     { width : Float
@@ -62,7 +86,7 @@ type alias Model =
 type Msg
     = Frame Float
     | Tick1s Time.Posix
-    | Tick17ms Time.Posix
+    | Tick20ms Time.Posix
     | ViewportInfoUpdate ViewportInfo
     | InitParticlePositions ViewportInfo
     | InitStartTime Time.Posix
@@ -103,6 +127,11 @@ calcFps f =
     { f | frameCount = 0, fps = f.frameCount }
 
 
+
+{- ------------------------------------------------------------------------------------ -}
+{- MAIN -}
+
+
 main : Program () Model Msg
 main =
     Browser.element
@@ -111,6 +140,11 @@ main =
         , update = update
         , subscriptions = subscriptions
         }
+
+
+
+{- ------------------------------------------------------------------------------------ -}
+{- INIT -}
 
 
 init : () -> ( Model, Cmd Msg )
@@ -125,21 +159,27 @@ init _ =
                 , height = 0
                 }
             }
-      , particles = range 1 10
-        |> map
-            (\x ->
-                P.createParticle 
-                    (vec2 (toFloat x) 0)
-                    (Random.generate (vec2 (Random.float 1 10) (Random.float 1 10)))
-                    (toFloat x)
-            )
+      , particles =
+            map
+                (\x ->
+                    P.createParticle
+                        (vec2 x 0)
+                        (vec2 -(-5 + x) 0.000001)
+                        x
+                )
+                pBase
       }
     , Cmd.batch
         [ getViewport |> Task.perform (\v -> ViewportInfoUpdate (toViewPortInfo v))
         , getViewport |> Task.perform (\v -> InitParticlePositions (toViewPortInfo v))
-        , Time.now  |> Task.perform (\t -> InitStartTime t)
+        , Time.now |> Task.perform (\t -> InitStartTime t)
         ]
     )
+
+
+
+{- ------------------------------------------------------------------------------------ -}
+{- UPDATE -}
 
 
 update msg model =
@@ -154,15 +194,17 @@ update msg model =
 
         InitParticlePositions viewport ->
             let
-                widthP = viewport.width / 10
+                widthP =
+                    viewport.width / (toFloat <| List.length pBase)
 
-                heightP = viewport.height / 10
+                heightP =
+                    viewport.height / 10
 
                 newModel =
                     model
                         |> setParticles
                             (map
-                                (\p -> P.setPos (vec2 ((getX p.p) * widthP) heightP) p)
+                                (\p -> P.setPos (vec2 (getX p.p * widthP) heightP) p)
                                 model.particles
                             )
             in
@@ -192,16 +234,24 @@ update msg model =
             in
             ( newModel, Cmd.none )
 
-        Tick17ms pTime ->
+        Tick20ms pTime ->
             let
                 newModel =
                     model
-                        |> setParticles (map
-                            (P.nextTick g d ((Time.posixToMillis pTime) - model.metaInfo.startTime))
-                            model.particles
-                        )
+                        |> setParticles
+                            (P.updateWorld
+                                g
+                                d
+                                (Time.posixToMillis pTime - model.metaInfo.startTime)
+                                model.particles
+                            )
             in
             ( newModel, Cmd.none )
+
+
+
+{- ------------------------------------------------------------------------------------ -}
+{- SUBSCRIPTIONS -}
 
 
 subscriptions : Model -> Sub Msg
@@ -210,8 +260,13 @@ subscriptions model =
         [ onAnimationFrameDelta Frame
         , onResize (\w h -> ViewportInfoUpdate { width = toFloat w, height = toFloat h })
         , Time.every 1000 Tick1s
-        , Time.every 17 Tick17ms
+        , Time.every 20 Tick20ms
         ]
+
+
+
+{- ------------------------------------------------------------------------------------ -}
+{- VIEW -}
 
 
 view : Model -> Html Msg
@@ -239,8 +294,7 @@ viewFPS fps =
 viewSvg : Model -> Html Msg
 viewSvg model =
     impose
-        {- (renderSquare model.metaInfo.frameCountAcc model.metaInfo.viewport) -} 
-        (renderParticles model.particles)
+        {- (renderSquare model.metaInfo.frameCountAcc model.metaInfo.viewport) -} (renderParticles model.particles)
         (renderBackground model.metaInfo |> align topLeft)
         |> svg
 
@@ -259,7 +313,7 @@ drawParticle : P.Particle -> Collage msg
 drawParticle p =
     circle p.radius
         |> filled (uniform Color.red)
-        |> shift ((getX p.p), (-1) * (getY p.p))
+        |> shift ( getX p.p, -1 * getY p.p )
 
 
 renderParticles : List P.Particle -> Collage msg

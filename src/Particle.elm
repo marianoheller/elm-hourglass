@@ -1,6 +1,8 @@
-module Particle exposing (Particle, createParticle, nextTick, setPos)
+module Particle exposing (Particle, createParticle, moveEm, setPos, updateWorld)
 
+import List exposing (..)
 import Math.Vector2 exposing (..)
+import Tuple exposing (..)
 
 
 type alias Tick =
@@ -42,16 +44,23 @@ createParticle pos vel mass =
     , restitution = 5
     }
 
+
+
+updateWorld : Vec2 -> Float -> Tick -> List Particle -> List Particle
+updateWorld g d t ps =
+    map (moveEm g d t) ps
+        |> collideEm
+
 {- 
-nextTick : Vec2 -> Float -> Tick -> Particle -> Particle
-nextTick g dCoeff t e =
+moveEm : Vec2 -> Float -> Tick -> Particle -> Particle
+moveEm g dCoeff t e =
     let
         surface =
             e.radius * 2 * 3.14
 
         drag =
             scale (dCoeff * surface) (scale (dot e.v e.v) (normalize e.v))
-            
+
         weight =
             scale e.mass (add g e.a)
 
@@ -59,7 +68,7 @@ nextTick g dCoeff t e =
 
         wd =
             if getX diff < 0 || getY diff < 0 then
-                vec2 0.0 0.0
+                vec2 0.00001 0.00001
 
             else
                 diff
@@ -70,14 +79,17 @@ nextTick g dCoeff t e =
         | p = nextPosition a t e
         , v = nextVelocity a t e
         , a = sub a g
-    } -}
+    }
 
-nextTick : Vec2 -> Float -> Tick -> Particle -> Particle
-nextTick g dCoeff t e =
+ -}
+
+
+moveEm : Vec2 -> Float -> Tick -> Particle -> Particle
+moveEm g dCoeff t e =
     { e
         | p = nextPosition (add g e.a) t e
         , v = nextVelocity (add g e.a) t e
-        , a = (sub e.a g)
+        , a = sub e.a g
     }
 
 
@@ -94,26 +106,65 @@ nextVelocity a t e =
         |> add e.v
 
 
-detectCollision : Particle -> Particle -> Bool
-detectCollision a b =
+collideEm : List Particle -> List Particle
+collideEm ps =
+    let
+        detected = map (\p -> ( p, detectCollisions ps p )) ps
+    in
+        resolveCollisions detected
+
+
+detectCollisions : List Particle -> Particle -> List Particle
+detectCollisions xs y =
+    foldl
+        (\x acc ->
+            if collided x y == True then
+                x :: acc
+
+            else
+                acc
+        )
+        []
+        xs
+
+
+collided : Particle -> Particle -> Bool
+collided a b =
     let
         r =
             a.radius + b.radius
+
+        d = (distance a.p b.p)
+
+        _ = Debug.log "GOT" (r, d, a.p)
+            
     in
-    r < (getX a.p + getX b.p) ^ 2 + (getY a.p + getY b.p) ^ 2
-{- 
+    r > d
 
-resolveCollision : Particle -> Particle -> Particle
-resolveCollision a b =
+
+resolveCollisions : List ( Particle, List Particle ) -> List Particle
+resolveCollisions ps =
+    map
+        (\( x, xs ) -> resolveCollision x xs)
+        ps
+
+
+resolveCollision : Particle -> List Particle -> Particle
+resolveCollision a bs =
     let
-        vRelX =
-            b.v.x - a.v.x
+        b =
+            { mass = foldl (\c acc -> c.mass + acc) 0 bs
+            , v = foldl (\c acc -> add c.v acc) (vec2 0 0) bs
+            }
 
-        vRelY =
-            b.v.y - a.v.y
+        rv =
+            sub b.v a.v
+
+        normal =
+            normalize rv
 
         velAlongNormal =
-            vRelX - vRelY
+            dot rv normal
 
         e =
             a.restitution
@@ -121,18 +172,11 @@ resolveCollision a b =
         j =
             (-(1 + e) * velAlongNormal) / (a.mass + 1 / b.mass)
 
-        impulseX =
-            j * a.v.x
-
-        impulseY =
-            j * a.v.y
+        impulse =
+            scale j normal
     in
-    if velAlongNormal < 0 then
+    if velAlongNormal > 0 then
         a
 
     else
-        setVel a
-            { x = a.v.x - (1 / a.mass * impulseX)
-            , y = a.v.y - (1 / a.mass * impulseY)
-            }
- -}
+        setVel a (sub a.v (scale (1 / a.mass) impulse))
