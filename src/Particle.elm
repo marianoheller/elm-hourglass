@@ -1,4 +1,4 @@
-module Particle exposing (Particle, createParticle, moveEm, setPos, updateWorld)
+module Particle exposing (Particle, createParticle, moveEm, setPos, invertVelById, updateWorld)
 
 import List exposing (..)
 import Math.Vector2 exposing (..)
@@ -16,6 +16,7 @@ type alias Particle =
     , radius : Float
     , mass : Float
     , restitution : Float
+    , id : Int
     }
 
 
@@ -24,26 +25,30 @@ setPos p e =
     { e | p = p }
 
 
-setVel : Particle -> Vec2 -> Particle
-setVel e v =
+setVel : Vec2 -> Particle -> Particle
+setVel v e =
     { e | v = v }
-
 
 setAccel : Particle -> Vec2 -> Particle
 setAccel e a =
     { e | a = a }
 
 
-createParticle : Vec2 -> Vec2 -> Float -> Particle
-createParticle pos vel mass =
+createParticle : Vec2 -> Vec2 -> Float -> Int -> Particle
+createParticle pos vel mass id =
     { p = pos
     , v = vel
     , a = vec2 0.00000001 0.00000001
-    , radius = 5
+    , radius = 15
     , mass = mass
     , restitution = 5
+    , id = id
     }
 
+
+invertVelById : Int -> List Particle -> List Particle
+invertVelById id = map
+  (\p -> if p.id == id then { p | v = Math.Vector2.negate p.v, a = vec2 0 0 } else p)
 
 
 updateWorld : Vec2 -> Float -> Tick -> List Particle -> List Particle
@@ -178,4 +183,4 @@ resolveCollision a bs =
         a
 
     else
-        setVel a (sub a.v (scale (1 / a.mass) impulse))
+        setVel (sub a.v (scale (1 / a.mass) impulse)) a

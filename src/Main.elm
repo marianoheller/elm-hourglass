@@ -6,6 +6,7 @@ import Browser.Events exposing (onAnimationFrameDelta, onResize)
 import Collage exposing (..)
 import Collage.Layout exposing (..)
 import Collage.Render exposing (..)
+import Collage.Events exposing (..)
 import Color
 import Html exposing (Html, div, text)
 import Html.Attributes exposing (style)
@@ -24,7 +25,7 @@ import Time
 
 g : Vec2
 g =
-    vec2 0 -0.00001
+    vec2 0 -0.0001
 
 
 
@@ -33,7 +34,7 @@ g =
 
 mass : Float
 mass =
-    5
+    50
 
 
 
@@ -54,7 +55,7 @@ d =
 
 pBase : List Float
 pBase =
-    map toFloat (range 1 10)
+    map toFloat (range 0 0)
 
 
 type alias ViewportInfo =
@@ -90,6 +91,7 @@ type Msg
     | ViewportInfoUpdate ViewportInfo
     | InitParticlePositions ViewportInfo
     | InitStartTime Time.Posix
+    | ParticleClicked Int
 
 
 setParticles : List P.Particle -> Model -> Model
@@ -164,8 +166,9 @@ init _ =
                 (\x ->
                     P.createParticle
                         (vec2 x 0)
-                        (vec2 -(-5 + x) 0.000001)
+                        (vec2 0 0.000001)
                         x
+                        (round x)
                 )
                 pBase
       }
@@ -194,8 +197,12 @@ update msg model =
 
         InitParticlePositions viewport ->
             let
+                marginX = viewport.width * 0.1
+
                 widthP =
-                    viewport.width / (toFloat <| List.length pBase)
+                    (viewport.width - (2 * marginX)) / (toFloat <| List.length pBase)
+
+                getNewX x = marginX + ((x + 0.5) * widthP)
 
                 heightP =
                     viewport.height / 10
@@ -204,7 +211,7 @@ update msg model =
                     model
                         |> setParticles
                             (map
-                                (\p -> P.setPos (vec2 (getX p.p * widthP) heightP) p)
+                                (\p -> P.setPos (vec2 (getNewX <| getX p.p) heightP) p)
                                 model.particles
                             )
             in
@@ -237,17 +244,24 @@ update msg model =
         Tick20ms pTime ->
             let
                 newModel =
-                    model
-                        |> setParticles
-                            (P.updateWorld
-                                g
-                                d
-                                (Time.posixToMillis pTime - model.metaInfo.startTime)
-                                model.particles
+                  model
+                      |> setParticles
+                          (P.updateWorld
+                              g
+                              d
+                              (Time.posixToMillis pTime - model.metaInfo.startTime)
+                              model.particles
                             )
             in
             ( newModel, Cmd.none )
-
+        ParticleClicked id ->
+          let
+              newModel =
+                model
+                    |> setParticles
+                          (P.invertVelById id model.particles)
+          in
+            (newModel, Cmd.none)
 
 
 {- ------------------------------------------------------------------------------------ -}
@@ -294,7 +308,7 @@ viewFPS fps =
 viewSvg : Model -> Html Msg
 viewSvg model =
     impose
-        {- (renderSquare model.metaInfo.frameCountAcc model.metaInfo.viewport) -} (renderParticles model.particles)
+        (renderParticles model.metaInfo.frameCountAcc model.particles)
         (renderBackground model.metaInfo |> align topLeft)
         |> svg
 
@@ -309,42 +323,20 @@ renderBackground m =
         |> filled (uniform <| Color.hsl hue 0.1 0.9)
 
 
-drawParticle : P.Particle -> Collage msg
-drawParticle p =
+drawParticle : Float -> P.Particle -> Collage Msg
+drawParticle count p =
+  let
+      
+      hue =
+          toFloat (count / 4 |> floor |> modBy 100) / 100
+  in
+  
     circle p.radius
-        |> filled (uniform Color.red)
+        |> filled (uniform <| Color.hsl hue 0.2 0.3)
         |> shift ( getX p.p, -1 * getY p.p )
+        |> onClick (ParticleClicked p.id)
 
 
-renderParticles : List P.Particle -> Collage msg
-renderParticles ps =
-    group <| map drawParticle ps
-
-
-renderSquare : Float -> ViewportInfo -> Collage msg
-renderSquare count v =
-    let
-        size =
-            v.height / 3
-
-        centerX =
-            v.width / 2
-
-        centerY =
-            v.height / 2
-
-        x =
-            centerX - (size / 2)
-
-        y =
-            centerY - (size / 2)
-
-        rotation =
-            degrees count
-
-        hue =
-            toFloat (count / 4 |> floor |> modBy 100) / 100
-    in
-    rectangle size size
-        |> filled (uniform <| Color.hsl hue 0.45 0.7)
-        |> rotate rotation
+renderParticles : Float -> List P.Particle -> Collage Msg
+renderParticles frameCount ps =
+    group <| map (drawParticle frameCount) ps
